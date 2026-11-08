@@ -2,7 +2,7 @@
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
-  <title>Demlik Kafe Takip</title>
+  <title>Kafe Takip Paneli (Özel Masa İsimli)</title>
   
   <!-- Canlı Eşitleme Kütüphanesi -->
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
@@ -23,6 +23,70 @@
     }
 
     .hidden { display: none !important; }
+
+    /* ŞİFRE GİRİŞ OVERLAY */
+    .login-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: #181825;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    .login-box {
+      background: #2b2b3d;
+      border: 1px solid #45475a;
+      border-radius: 16px;
+      padding: 30px;
+      width: 340px;
+      max-width: 90%;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .login-box h3 {
+      margin: 0;
+      color: #89b4fa;
+      font-size: 20px;
+    }
+
+    .login-input {
+      width: 100%;
+      padding: 12px;
+      font-size: 18px;
+      text-align: center;
+      letter-spacing: 4px;
+      border-radius: 8px;
+      border: 1px solid #45475a;
+      background: #181825;
+      color: #a6e3a1;
+      font-weight: bold;
+    }
+
+    .login-btn {
+      background: #89b4fa;
+      color: #11111b;
+      font-size: 14px;
+      font-weight: bold;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .login-error {
+      color: #f38ba8;
+      font-size: 12px;
+      min-height: 16px;
+    }
 
     .wrapper {
       width: 100%;
@@ -271,6 +335,7 @@
     .close-btn { background: #f38ba8; color: #11111b; padding: 6px 12px; }
     .history-toggle-btn { background: #cba6f7; color: #11111b; }
     .reset-cari-btn { background: #fab387; color: #11111b; }
+    .lock-btn { background: #f38ba8; color: #11111b; }
 
     .gunu-topla-btn {
       background: #a6e3a1;
@@ -463,16 +528,27 @@
 </head>
 <body>
 
+  <!-- ŞİFRE EKRANI (LOGIN OVERLAY) -->
+  <div id="login-overlay" class="login-overlay">
+    <div class="login-box">
+      <h3>🔒 Sistem Şifresi Girişi</h3>
+      <input type="password" id="login-passcode" class="login-input" placeholder="••••" maxlength="10" onkeyup="if(event.key==='Enter') checkPassword()">
+      <div id="login-error" class="login-error"></div>
+      <button class="login-btn" onclick="checkPassword()">Giriş Yap</button>
+    </div>
+  </div>
+
   <!-- Ana Panel -->
-  <div id="main-content" class="wrapper">
+  <div id="main-content" class="wrapper hidden">
     
     <div class="top-bar">
-      <h2 style="margin:0;">☕ Kafe Canlı Takip</h2>
+      <h2 style="margin:0;">☕ Demlik Kafe Takip</h2>
       <div id="connection-status" class="status-badge">🟡 BAĞLANIYOR...</div>
       <div class="turnover-badge">GÜNLÜK CİRO: <span id="daily-turnover">0 TL</span></div>
       <div class="actions-bar">
         <button class="history-toggle-btn" onclick="toggleDrawer(true)">📜 Satış Geçmişi</button>
         <button class="reset-cari-btn" onclick="resetCari()">🔄 Cariyi Sıfırla</button>
+        <button class="lock-btn" onclick="lockApp()">🔒 Çıkış</button>
       </div>
     </div>
 
@@ -489,7 +565,7 @@
       </div>
     </div>
 
-    <!-- En Alt Bölüm: Günü Topla Butonu (Aşağıya Çekildi) -->
+    <!-- En Alt Bölüm: Günü Topla Butonu -->
     <div style="margin-top: 40px; margin-bottom: 15px;">
       <button class="gunu-topla-btn" onclick="exportDailySummaryExcel()">📅 GÜNÜ TOPLA</button>
     </div>
@@ -566,6 +642,33 @@
   </div>
 
   <script>
+    // ---------------------------------------------------------------------
+    // 🔑 ŞİFRE AYARI (Varsayılan: 1234)
+    // ---------------------------------------------------------------------
+    const SYSTEM_PASSWORD = "1234";
+
+    function checkPassword() {
+      const inputPass = document.getElementById("login-passcode").value;
+      const errorEl = document.getElementById("login-error");
+
+      if (inputPass === SYSTEM_PASSWORD) {
+        document.getElementById("login-overlay").classList.add("hidden");
+        document.getElementById("main-content").classList.remove("hidden");
+        errorEl.innerText = "";
+      } else {
+        errorEl.innerText = "❌ Hatalı şifre!";
+        document.getElementById("login-passcode").value = "";
+        document.getElementById("login-passcode").focus();
+      }
+    }
+
+    function lockApp() {
+      document.getElementById("login-passcode").value = "";
+      document.getElementById("login-error").innerText = "";
+      document.getElementById("main-content").classList.add("hidden");
+      document.getElementById("login-overlay").classList.remove("hidden");
+    }
+
     // MASA İSİMLERİ AYARLARI
     const leftTableNames = [
       "Masa 1", "Masa 2", "Masa 3", "Masa 4",
@@ -616,7 +719,7 @@
       const savedHistory = localStorage.getItem("cafe_history");
       const savedQuick = localStorage.getItem("cafe_quick_products");
 
-      if (savedTurnover) dailyTurnover = parseFloat(savedTurnover);
+      if (savedTurnover !== null) dailyTurnover = parseFloat(savedTurnover) || 0;
       if (savedTables) tables = JSON.parse(savedTables);
       if (savedHistory) salesHistory = JSON.parse(savedHistory);
       if (savedQuick) quickProducts = JSON.parse(savedQuick);
@@ -635,59 +738,68 @@
     }
 
     function connectSyncServer() {
-      const clientId = 'kafe_client_' + Math.random().toString(36).substring(2, 10);
+      try {
+        const clientId = 'kafe_client_' + Math.random().toString(36).substring(2, 10);
 
-      mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
-        clientId: clientId,
-        clean: true,
-        connectTimeout: 5000,
-        reconnectPeriod: 2000
-      });
+        mqttClient = mqtt.connect('wss://broker.hivemq.com:8884/mqtt', {
+          clientId: clientId,
+          clean: true,
+          connectTimeout: 5000,
+          reconnectPeriod: 2000
+        });
 
-      mqttClient.on('connect', () => {
-        updateStatus("🟢 CANLI BAĞLI", "#a6e3a1");
-        mqttClient.subscribe(TOPIC);
-      });
+        mqttClient.on('connect', () => {
+          updateStatus("🟢 CANLI BAĞLI", "#a6e3a1");
+          mqttClient.subscribe(TOPIC);
+        });
 
-      mqttClient.on('offline', () => {
-        updateStatus("🔴 BAĞLANTI KOPTU", "#f38ba8");
-      });
+        mqttClient.on('offline', () => {
+          updateStatus("🔴 BAĞLANTI KOPTU", "#f38ba8");
+        });
 
-      mqttClient.on('error', (err) => {
-        console.error('MQTT Hatasi:', err);
-        updateStatus("⚠️ SUNUCU HATASI", "#fab387");
-      });
+        mqttClient.on('error', (err) => {
+          console.warn('MQTT Hatasi:', err);
+          updateStatus("🟠 LOKAL MOD", "#f9e2af");
+        });
 
-      mqttClient.on('message', (topic, message) => {
-        try {
-          const data = JSON.parse(message.toString());
-          if (data) {
-            dailyTurnover = data.turnover || 0;
-            tables = data.tables || createEmptyTables();
-            salesHistory = data.history || [];
-            quickProducts = data.quickProducts || [];
-            
-            updateTurnoverDisplay();
-            renderGrids();
-            renderHistoryDrawer();
-            if (activeTableKey) {
-              renderModalContent();
-              renderQuickProducts();
+        mqttClient.on('message', (topic, message) => {
+          try {
+            const data = JSON.parse(message.toString());
+            if (data) {
+              dailyTurnover = data.turnover || 0;
+              tables = data.tables || createEmptyTables();
+              salesHistory = data.history || [];
+              quickProducts = data.quickProducts || [];
+              
+              updateTurnoverDisplay();
+              renderGrids();
+              renderHistoryDrawer();
+              if (activeTableKey) {
+                renderModalContent();
+                renderQuickProducts();
+              }
             }
-          }
-        } catch (e) { console.error(e); }
-      });
+          } catch (e) { console.error(e); }
+        });
+      } catch (e) {
+        console.warn("WebSocket kısıtlaması nedeniyle lokal mod aktif:", e);
+        updateStatus("🟠 LOKAL MOD", "#f9e2af");
+      }
     }
 
     function syncData() {
-      if (mqttClient && mqttClient.connected) {
-        const payload = JSON.stringify({ 
-          turnover: dailyTurnover, 
-          tables: tables, 
-          history: salesHistory,
-          quickProducts: quickProducts 
-        });
-        mqttClient.publish(TOPIC, payload, { retain: true, qos: 0 });
+      try {
+        if (mqttClient && mqttClient.connected) {
+          const payload = JSON.stringify({ 
+            turnover: dailyTurnover, 
+            tables: tables, 
+            history: salesHistory,
+            quickProducts: quickProducts 
+          });
+          mqttClient.publish(TOPIC, payload, { retain: true, qos: 0 });
+        }
+      } catch (e) {
+        console.warn("MQTT Publish atlandı");
       }
       localStorage.setItem("cafe_turnover", dailyTurnover);
       localStorage.setItem("cafe_tables", JSON.stringify(tables));
